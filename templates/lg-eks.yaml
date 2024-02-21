@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: my-neoload-lg
+  # -- Deployment name must be unique inside a namespace, so add something identifying a specific deployment to the name.
+  name: {{ .Values.generator.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  # -- Change the replicas value depending on how many LG(s) you want to start.
+  replicas: {{ .Values.generator.ReplicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.generator.label }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.generator.label }}
+    spec:
+      containers:
+      - env:
+        - name: MODE
+          value: {{ .Values.generator.Mode | quote }}
+        - name: NEOLOADWEB_URL
+          value: {{ .Values.neoloadWeb.URL | quote }}
+          # -- Use API token to authenticate.
+        - name: NEOLOADWEB_TOKEN
+          value: {{ .Values.neoloadWeb.Token | quote }}
+          # -- Here we attach resources to the default zone, change defaultzone to a zone id if you want to attach to a specific zone.
+        - name: ZONE
+          value: {{ .Values.neoloadWeb.Zone | quote }}
+        - name: AGENT_START_RESERVED
+          value: {{ .Values.neoloadWeb.StartReserved | quote }}
+        - name: LG_PORT
+          value: {{ .Values.generator.LGPort | quote }}
+        - name: LG_HOST
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        # -- -Xmx2400m is for the Java memory settings, it should be modified in accordance with the requests memory setting (see below)
+        # -- In any cases Xmx valus must not be more than 90% of the memory requests value !
+        - name: LOADGENERATOR_XMX
+          value: {{ .Values.generator.XMX | quote }}
+        image: {{ .Values.image.generatorImage }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        livenessProbe:
+          failureThreshold: {{ .Values.generator.LivenessProbeFailureThreshold }}
+          initialDelaySeconds: {{ .Values.generator.LivenessProbeInitialDelaySeconds }}
+          periodSeconds: {{ .Values.generator.LivenessProbePeriodSeconds }}
+          successThreshold: {{ .Values.generator.LivenessProbeSuccessThreshold }}
+          tcpSocket:
+            port: {{ .Values.generator.Port }}
+          timeoutSeconds: {{ .Values.generator.LivenessProbeTimeoutSeconds }}
+        name: {{ .Values.generator.GeneratorName }}
+        ports:
+        - containerPort: {{ .Values.generator.Port }}
+          protocol: {{ .Values.generator.Protocol }}
+        readinessProbe:
+          failureThreshold: {{ .Values.generator.ReadinessProbeFailureThreshold }}
+          initialDelaySeconds: {{ .Values.generator.ReadinessProbeInitialDelaySeconds }}
+          periodSeconds: {{ .Values.generator.ReadinessProbePeriodSeconds }}
+          successThreshold: {{ .Values.generator.ReadinessProbeSuccessThreshold }}
+          tcpSocket:
+            port: {{ .Values.generator.Port }}
+          timeoutSeconds: {{ .Values.generator.ReadinessProbeTimeoutSeconds }}
+        resources:
+          limits:
+            cpu: {{ .Values.generator.LimitCPU }}
+            memory: {{ .Values.generator.LimitMemory }}
+          requests:
+            cpu: {{ .Values.generator.RequestCPU }}
+            # -- Container memory requests
+            memory: {{ .Values.generator.RequestMemory }}
+        terminationMessagePath: {{ .Values.generator.TerminationPath }}
+        terminationMessagePolicy: {{ .Values.generator.TerminationPolicy }}
+      dnsPolicy: {{ .Values.generator.DNS }}
+      imagePullSecrets:
+      - {}
+      restartPolicy: {{ .Values.generator.RestartPolicy }}
+      schedulerName: {{ .Values.generator.SchedulerName }}
+      securityContext: {}
+      terminationGracePeriodSeconds: {{ .Values.generator.TerminationGraceSeconds }}
