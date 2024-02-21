@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: my-neoload-controller
+  # -- Deployment name must be unique inside a namespace, so add something identifying a specific deployment to the name.
+  name: {{ .Values.controller.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  # -- Change the replicas value depending on how many Controller(s) you want to start.
+  replicas: {{ .Values.controller.ReplicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.controller.label }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.controller.label }}
+    spec:
+      containers:
+      - env:
+        - name: MODE
+          value: {{ .Values.controller.Mode | quote }}
+        - name: NEOLOADWEB_URL
+          value: {{ .Values.neoloadWeb.URL | quote }}
+          # -- Use API token to authenticate.
+        - name: NEOLOADWEB_TOKEN
+          value: {{ .Values.neoloadWeb.Token | quote }}
+          # -- Here we attach resources to the default zone, change defaultzone to a zone id if you want to attach to a specific zone.
+        - name: ZONE
+          value: {{ .Values.neoloadWeb.Zone | quote }}
+        - name: AGENT_START_RESERVED
+          value: {{ .Values.neoloadWeb.StartReserved | quote }}
+        # -- -Xmx6400m is for the Java memory settings, it should be modified in accordance with the requests memory setting (see below)
+        # -- In any cases Xmx valus must not be more than 90% of the memory requests value !
+        # -- You can increase or decrease it depending on your needs, in this case you must change memory requests and limits accordingly.
+        - name: CONTROLLER_XMX
+          value: {{ .Values.controller.XMX | quote }}
+        image: {{ .Values.image.controllerImage }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - lockFile=/home/neoload/.neotys/neoload/v*/controller-agent.lock;
+            - cat $lockFile
+          failureThreshold: {{ .Values.controller.LivenessProbeFailureThreshold }}
+          initialDelaySeconds: {{ .Values.controller.LivenessProbeInitialDelaySeconds }}
+          periodSeconds: {{ .Values.controller.LivenessProbePeriodSeconds }}
+          successThreshold: {{ .Values.controller.LivenessProbeSuccessThreshold }}
+          timeoutSeconds: {{ .Values.controller.LivenessProbeTimeoutSeconds }}
+        name: {{ .Values.controller.ControllerName }}
+        ports:
+        - containerPort: {{ .Values.controller.Port }}
+          protocol: {{ .Values.controller.Protocol }}
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - lockFile=/home/neoload/.neotys/neoload/v*/controller-agent.lock;
+            - cat $lockFile
+          failureThreshold: {{ .Values.controller.ReadinessProbeFailureThreshold }}
+          initialDelaySeconds: {{ .Values.controller.ReadinessProbeInitialDelaySeconds }}
+          periodSeconds: {{ .Values.controller.ReadinessProbePeriodSeconds }}
+          successThreshold: {{ .Values.controller.ReadinessProbeSuccessThreshold }}
+          timeoutSeconds: {{ .Values.controller.ReadinessProbeTimeoutSeconds }}
+        resources:
+          limits:
+            cpu: {{ .Values.controller.LimitCPU }}
+            memory: {{ .Values.controller.LimitMemory }}
+          requests:
+            cpu: {{ .Values.controller.RequestCPU }}
+            # -- Container memory requests
+            memory: {{ .Values.controller.RequestMemory }}
+        terminationMessagePath: {{ .Values.controller.TerminationPath }}
+        terminationMessagePolicy: {{ .Values.controller.TerminationPolicy }}
+      dnsPolicy: {{ .Values.controller.DNS }}
+      imagePullSecrets:
+      - {}
+      restartPolicy: {{ .Values.controller.RestartPolicy }}
+      schedulerName: {{ .Values.controller.SchedulerName }}
+      securityContext: {}
+      terminationGracePeriodSeconds: {{ .Values.controller.TerminationGraceSeconds }}
